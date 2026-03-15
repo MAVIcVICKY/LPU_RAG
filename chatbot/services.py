@@ -92,33 +92,42 @@ def initialize_agent():
             
             # Use most compatible method based on library version
             try:
+                # 1. Try from_tools (common in modern llama-index)
                 if hasattr(ReActAgent, 'from_tools'):
+                    logger.info("Initializing ReActAgent via from_tools")
                     agent = ReActAgent.from_tools(
                         tools=[_knowledge_base_tool],
                         llm=llm,
                         context="You are a helpful AI assistant for LPU."
                     )
+                # 2. Try from_llm_and_tools (found in some versions)
                 elif hasattr(ReActAgent, 'from_llm_and_tools'):
+                    logger.info("Initializing ReActAgent via from_llm_and_tools")
                     agent = ReActAgent.from_llm_and_tools(
                         tools=[_knowledge_base_tool],
                         llm=llm,
                         context="You are a helpful AI assistant for LPU."
                     )
+                # 3. Direct constructor (Legacy or specific versions)
                 else:
-                    # Direct constructor call
+                    logger.info("Initializing ReActAgent via direct constructor")
                     agent = ReActAgent(
                         tools=[_knowledge_base_tool],
                         llm=llm,
                         context="You are a helpful AI assistant for LPU."
                     )
-            except AttributeError:
-                # Fallback if hasattr was misleading or method call failed
-                logger.warning("ReActAgent.from_tools failed, trying direct instantiation")
-                agent = ReActAgent(
-                    tools=[_knowledge_base_tool],
-                    llm=llm,
-                    context="You are a helpful AI assistant for LPU."
-                )
+            except Exception as e:
+                # 4. Final desperate fallback - sometimes from_tools exists but fails for other reasons
+                logger.warning(f"Preferred initialization failed: {e}. Trying direct instantiation as fallback.")
+                try:
+                    agent = ReActAgent(
+                        tools=[_knowledge_base_tool],
+                        llm=llm,
+                        context="You are a helpful AI assistant for LPU."
+                    )
+                except Exception as final_e:
+                    logger.error(f"All ReActAgent initialization attempts failed: {final_e}")
+                    raise final_e
         else:
             # Simple wrapper
             class SimpleAgent:
