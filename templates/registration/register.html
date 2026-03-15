@@ -1,0 +1,200 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account - LPU UMS Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Roboto', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f4f6f9 0%, #e0eafc 100%);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 480px;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-top: 6px solid #f47920;
+            animation: slideUp 0.6s ease-out forwards;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-container {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .logo-container img {
+            width: 60px;
+            margin-bottom: 10px;
+        }
+
+        .brand-text {
+            font-size: 22px;
+            font-weight: 800;
+            color: #222;
+        }
+
+        .brand-subtext {
+            font-size: 13px;
+            color: #666;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #444;
+        }
+
+        .form-control, .form-group input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+            background: #fdfdfd;
+        }
+
+        .form-control:focus, .form-group input:focus {
+            border-color: #f47920;
+            box-shadow: 0 0 0 3px rgba(244, 121, 32, 0.15);
+            background: #fff;
+        }
+        
+        /* Auto styling for Django Forms */
+        .helptext {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-top: 4px;
+            display: block;
+        }
+        
+        ul.errorlist {
+            color: #e74c3c;
+            font-size: 12px;
+            list-style-type: none;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            padding-left: 0;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #f47920, #e66200);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(244, 121, 32, 0.3);
+            margin-top: 15px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(244, 121, 32, 0.4);
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c0392b;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .django-form-container p {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="logo-container">
+            <img src="{% static 'images/lpu_logo.png' %}" alt="LPU Logo" style="width: 60px;">
+            <div class="brand-text">UMS AI ASSISTANT</div>
+            <div class="brand-subtext">Register New Account</div>
+        </div>
+
+        {% if form.errors and not form.non_field_errors %}
+            <div class="error-message">
+                Please correct the errors below.
+            </div>
+        {% endif %}
+        
+        {% if form.non_field_errors %}
+            <div class="error-message">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <form method="post" action="/register/" class="django-form-container">
+            {% csrf_token %}
+            
+            {% for field in form %}
+                <div class="form-group">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% if field.help_text %}
+                        <span class="helptext">{{ field.help_text|safe }}</span>
+                    {% endif %}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+            
+            <button type="submit" class="login-btn">Create Account</button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 25px; font-size: 14px; color: #666;">
+            Already have an account? <a href="/accounts/login/" style="color: #f47920; text-decoration: none; font-weight: 600;">Log In</a>
+        </div>
+    </div>
+
+</body>
+</html>
