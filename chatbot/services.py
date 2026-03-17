@@ -1,7 +1,10 @@
 import os
 import logging
 import traceback
+import asyncio
+import inspect
 from dotenv import load_dotenv
+import boto3
 
 # Load environment variables
 load_dotenv()
@@ -14,25 +17,53 @@ agent = None
 HAS_LLAMA = False
 
 try:
-    from llama_index.retrievers.bedrock import AmazonKnowledgeBasesRetriever
-    from llama_index.llms.openai import OpenAI
-    from llama_index.core.query_engine import RetrieverQueryEngine
-    from llama_index.core.tools import QueryEngineTool
-    from llama_index.core import Settings
-    from llama_index.core.llms import ChatMessage, MessageRole
-    
     try:
-        from llama_index.core.agent import ReActAgent
-    except Exception:
+        from llama_index.retrievers.bedrock import AmazonKnowledgeBasesRetriever
+        from llama_index.llms.openai import OpenAI
+        from llama_index.llms.bedrock import Bedrock
+        from llama_index.core.query_engine import RetrieverQueryEngine
+        from llama_index.core.tools import QueryEngineTool
+        from llama_index.core import Settings
+        
         try:
-            from llama_index.core.agent.react.base import ReActAgent
+            from llama_index.core.llms import ChatMessage, MessageRole
         except Exception:
-            ReActAgent = None
-            
-    HAS_LLAMA = True
-except ImportError as e:
+            # Fallback for older versions or version conflicts during local testing
+            try:
+                from llama_index.core.base.llms.types import ChatMessage, MessageRole
+            except Exception:
+                ChatMessage, MessageRole = None, None
+        
+        try:
+            from llama_index.core.agent import ReActAgent
+        except Exception:
+            try:
+                from llama_index.core.agent.react.base import ReActAgent
+            except Exception:
+                ReActAgent = None
+                
+        HAS_LLAMA = True
+    except Exception as e:
+        HAS_LLAMA = False
+        logger.error(f"LlamaIndex initialization error (likely local version mismatch): {e}")
+except Exception as global_e:
     HAS_LLAMA = False
-    logger.error(f"LlamaIndex or dependencies not found: {e}")
+    logger.error(f"Global AI import failure: {global_e}")
+
+def get_config(env_key, ssm_path=None):
+    """Retrieves configuration from environment or AWS SSM Parameter Store."""
+    val = os.getenv(env_key)
+    if val:
+        return val
+    if ssm_path:
+        try:
+            region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-south-1"
+            ssm = boto3.client('ssm', region_name=region)
+            response = ssm.get_parameter(Name=ssm_path, WithDecryption=True)
+            return response['Parameter']['Value']
+        except Exception as e:
+            logger.debug(f"SSM Fetch failed for {ssm_path}: {e}")
+    return None
 
 def initialize_retriever():
     """Initializes only the retriever (more stable than the agent)."""
@@ -41,13 +72,17 @@ def initialize_retriever():
         return retriever
     try:
         aws_region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-south-1"
-        kb_id = os.getenv("BEDROCK_KNOWLEDGE_BASE_ID")
+        kb_id = get_config("BEDROCK_KNOWLEDGE_BASE_ID", "/rag-app/knowledge-base-id")
+        
         if kb_id:
+            logger.info(f"Initializing AmazonKnowledgeBasesRetriever with ID: {kb_id}")
             retriever = AmazonKnowledgeBasesRetriever(
                 knowledge_base_id=kb_id,
                 retrieval_config={"vectorSearchConfiguration": {"numberOfResults": 3}},
                 region_name=aws_region
             )
+        else:
+            logger.warning("No BEDROCK_KNOWLEDGE_BASE_ID found in env or SSM.")
         return retriever
     except Exception as e:
         logger.error(f"Failed to initialize retriever: {e}")
@@ -59,21 +94,42 @@ def initialize_agent():
     if agent is not None:
         return agent
     
+    if not HAS_LLAMA:
+        logger.error("Cannot initialize agent: LlamaIndex missing.")
+        return None
+
     try:
-        github_token = os.getenv("GITHUB_TOKEN")
-        github_model = os.getenv("GITHUB_MODEL", "gpt-4o")
+        # Configuration retrieval
+        github_token = get_config("GITHUB_TOKEN", "/rag-app/github-token")
+        github_model = get_config("GITHUB_MODEL", "/rag-app/github-model") or "gpt-4o"
+        bedrock_model = get_config("BEDROCK_MODEL_ID", "/rag-app/model-id")
+        aws_region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-south-1"
         
         # Ensure retriever is ready
         curr_retriever = initialize_retriever()
-        if not curr_retriever or not github_token:
+        if not curr_retriever:
+            logger.warning("Retriever not initialized; raw data fallback will be used.")
             return None
 
         # Initialize LLM
-        llm = OpenAI(
-            model=github_model,
-            api_key=github_token,
-            api_base="https://models.github.ai/inference"
-        )
+        llm = None
+        if github_token:
+            logger.info(f"Using GitHub Models (OpenAI wrapper) with model: {github_model}")
+            llm = OpenAI(
+                model=github_model,
+                api_key=github_token,
+                api_base="https://models.github.ai/inference"
+            )
+        elif bedrock_model:
+            logger.info(f"Using AWS Bedrock with model: {bedrock_model}")
+            llm = Bedrock(
+                model=bedrock_model,
+                region_name=aws_region
+            )
+        else:
+            logger.error("No LLM configuration found (missing GITHUB_TOKEN and BEDROCK_MODEL_ID).")
+            return None
+
         Settings.llm = llm
 
         # Create Query Engine
@@ -90,46 +146,18 @@ def initialize_agent():
                 description="Information about LPU University rules and courses.",
             )
             
-            # Use most compatible method based on library version
+            # Try multiple initialization patterns
             try:
-                # 1. Try from_tools (common in modern llama-index)
                 if hasattr(ReActAgent, 'from_tools'):
-                    logger.info("Initializing ReActAgent via from_tools")
-                    agent = ReActAgent.from_tools(
-                        tools=[_knowledge_base_tool],
-                        llm=llm,
-                        context="You are a helpful AI assistant for LPU."
-                    )
-                # 2. Try from_llm_and_tools (found in some versions)
+                    agent = ReActAgent.from_tools(tools=[_knowledge_base_tool], llm=llm, context="You are a helpful AI assistant for LPU.")
                 elif hasattr(ReActAgent, 'from_llm_and_tools'):
-                    logger.info("Initializing ReActAgent via from_llm_and_tools")
-                    agent = ReActAgent.from_llm_and_tools(
-                        tools=[_knowledge_base_tool],
-                        llm=llm,
-                        context="You are a helpful AI assistant for LPU."
-                    )
-                # 3. Direct constructor (Legacy or specific versions)
+                    agent = ReActAgent.from_llm_and_tools(tools=[_knowledge_base_tool], llm=llm, context="You are a helpful AI assistant for LPU.")
                 else:
-                    logger.info("Initializing ReActAgent via direct constructor")
-                    agent = ReActAgent(
-                        tools=[_knowledge_base_tool],
-                        llm=llm,
-                        context="You are a helpful AI assistant for LPU."
-                    )
+                    agent = ReActAgent(tools=[_knowledge_base_tool], llm=llm, context="You are a helpful AI assistant for LPU.")
             except Exception as e:
-                # 4. Final desperate fallback - sometimes from_tools exists but fails for other reasons
-                logger.warning(f"Preferred initialization failed: {e}. Trying direct instantiation as fallback.")
-                try:
-                    agent = ReActAgent(
-                        tools=[_knowledge_base_tool],
-                        llm=llm,
-                        context="You are a helpful AI assistant for LPU."
-                    )
-                except Exception as final_e:
-                    logger.error(f"All ReActAgent initialization attempts failed: {final_e}")
-                    raise final_e
+                logger.warning(f"Preferred ReActAgent init failed: {e}. Falling back to direct instantiation.")
+                agent = ReActAgent(tools=[_knowledge_base_tool], llm=llm, context="You are a helpful AI assistant for LPU.")
         else:
-            # Simple wrapper
             class SimpleAgent:
                 def __init__(self, qe): self.qe = qe
                 async def achat(self, m, chat_history=None): return await self.qe.aquery(m)
@@ -137,7 +165,7 @@ def initialize_agent():
             
         return agent
     except Exception as e:
-        logger.error(f"Agent initialization error (will use raw data instead): {e}")
+        logger.error(f"Agent initialization error: {e}")
         return None
 
 async def get_agent_response(message, chat_history):
@@ -150,30 +178,71 @@ async def get_agent_response(message, chat_history):
                 role = MessageRole.USER if msg["role"] == "user" else MessageRole.ASSISTANT
                 chat_history_objs.append(ChatMessage(role=role, content=msg["content"]))
             
+            # Multi-method dispatch with aggressive resolution loop
+            response = None
             if hasattr(curr_agent, 'achat'):
-                response = await curr_agent.achat(message, chat_history=chat_history_objs)
-                return str(response)
-            else:
-                response = await curr_agent.aquery(message)
-                return str(response)
+                logger.info("Trying agent.achat...")
+                response = curr_agent.achat(message, chat_history=chat_history_objs)
+            elif hasattr(curr_agent, 'arun'):
+                logger.info("Trying agent.arun with history...")
+                # Note: Workflow-based agents often take chat_history
+                response = curr_agent.arun(user_msg=message, chat_history=chat_history_objs)
+            elif hasattr(curr_agent, 'chat'):
+                logger.info("Trying agent.chat...")
+                response = curr_agent.chat(message, chat_history=chat_history_objs)
+            elif hasattr(curr_agent, 'run'):
+                logger.info("Trying agent.run with history...")
+                response = curr_agent.run(user_msg=message, chat_history=chat_history_objs)
+            elif hasattr(curr_agent, 'aquery'):
+                logger.info("Trying agent.aquery (history may be ignored)...")
+                response = curr_agent.aquery(message)
+            elif hasattr(curr_agent, 'query'):
+                logger.info("Trying agent.query (history may be ignored)...")
+                response = curr_agent.query(message)
+            
+            # Agressively resolve any awaitables or WorkflowHandlers
+            # We do this in a loop because some methods return a coroutine that returns a handler
+            # which then needs to be awaited itself to get the final result.
+            for attempt in range(5):
+                if response is None:
+                    break
+                
+                res_type = str(type(response))
+                logger.info(f"Resolution Attempt {attempt+1}: Type is {res_type}")
+                
+                if inspect.isawaitable(response):
+                    logger.debug("Awaiting coroutine/awaitable...")
+                    response = await response
+                elif 'WorkflowHandler' in res_type:
+                    logger.debug("Awaiting WorkflowHandler...")
+                    response = await response
+                else:
+                    # We reached a final result (likely a Response object or string)
+                    break
+
+            if response is not None:
+                final_answer = str(response)
+                logger.info(f"Successfully resolved response: {final_answer[:50]}...")
+                return final_answer
+            
+            logger.error(f"No valid query methods found on agent type: {type(curr_agent)}")
         except Exception as e:
             logger.error(f"Agent execution failed: {e}")
-            # Do not return, fall through to raw data
+            logger.debug(traceback.format_exc())
     
-    # AGGRESSIVE FALLBACK: If Agent fails or LLM is down, return raw chunks
+    # AGGRESSIVE FALLBACK: Raw chunks if LLM/Agent fails
     curr_retriever = initialize_retriever()
     if curr_retriever:
         try:
             nodes = curr_retriever.retrieve(message)
             if nodes:
-                res = "⚠️ **[Information Retrieved]** (I'm having trouble thinking right now, but here is what the records say):\n\n"
+                res = "⚠️ **[Information Retrieved]** (I encountered a technical glitch, but here is the raw documentation):\n\n"
                 for i, node in enumerate(nodes):
                     text = node.get_content() if hasattr(node, "get_content") else str(node)
                     res += f"**Record {i+1}:**\n{text}\n\n"
                 return res
-            else:
-                return "I couldn't find any specific records for your query. Please try rephrasing."
-        except Exception as re:
-            return f"❌ System Error: Connection to database failed ({str(re)})."
+            return "I couldn't find any specific records for your query."
+        except Exception:
+            return "❌ System Error: University records are currently unreachable."
     
-    return "I'm sorry, the university search system is currently unreachable. Please check back later."
+    return "I'm sorry, the university search system is offline."

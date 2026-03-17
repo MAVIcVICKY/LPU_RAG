@@ -1,15 +1,30 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LPU UMS - AI Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>LPU AI Assistant | Portal</title>
+    <!-- Modern Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Three.js for visualization -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        :root {
+            --primary: #f47920;
+            --primary-dark: #cc5d0e;
+            --primary-light: #ff9a4d;
+            --bg-dark: #0a0e14;
+            --bg-card: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-dim: #a0a6b1;
+            --glass: rgba(16, 22, 32, 0.7);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
         * {
             margin: 0;
@@ -19,412 +34,452 @@
         }
 
         body {
-            font-family: 'Roboto', sans-serif;
-            background: #f1f4f9;
-            color: #333;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(244, 121, 32, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(244, 121, 32, 0.05) 0px, transparent 50%);
+            color: var(--text-main);
             height: 100vh;
-            height: -webkit-fill-available;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
         /* HEADER */
-        .ums-header {
-            background: #ffffff;
-            height: 60px;
+        header {
+            height: 70px;
+            padding: 0 40px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 15px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
             z-index: 100;
-            border-bottom: 4px solid #f47920;
-            flex-shrink: 0;
         }
 
-        .logo-section {
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-img {
+            height: 42px;
+            filter: drop-shadow(0 0 10px rgba(244, 121, 32, 0.3));
+        }
+
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo-text h1 {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: #fff;
+        }
+
+        .logo-text h1 span {
+            color: var(--primary);
+        }
+
+        .logo-text p {
+            font-size: 10px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 8px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+        }
+
+        .logout-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(244, 121, 32, 0.3);
+        }
+
+        /* MAIN CONTENT */
+        main {
+            flex: 1;
+            display: flex;
+            padding: 24px;
+            gap: 24px;
+            overflow: hidden;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* CHAT SECTION */
+        .chat-container {
+            flex: 1.4;
+            display: flex;
+            flex-direction: column;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .chat-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header h2 {
+            font-size: 15px;
+            font-weight: 700;
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        .ums-logo-text {
-            font-size: 24px;
-            font-weight: 800;
-            color: #000;
-        }
-
-        .ums-logo-text span {
-            color: #f47920;
-        }
-
-        .title-container {
-            display: flex;
-            flex-direction: column;
-            border-left: 1px solid #ddd;
-            padding-left: 10px;
-        }
-
-        .top-title {
-            font-weight: 700;
-            font-size: 14px;
-            color: #222;
-        }
-
-        .sub-text {
-            font-size: 10px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .logout-btn {
-            background: #fff;
-            color: #f47920;
-            border: 1px solid #f47920;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .logout-btn:hover {
-            background: #f47920;
-            color: #fff;
-        }
-
-        /* MAIN LAYOUT */
-        .main-container {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-            padding: 20px;
-            gap: 20px;
-        }
-
-        /* CHAT AREA */
-        .chat-card {
-            flex: 1.5;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            border: 1px solid #e0e0e0;
-        }
-
-        .card-header {
-            padding: 12px 20px;
-            background: #fff;
-            border-bottom: 2px solid #fef3e9;
-            font-weight: 700;
-            font-size: 15px;
-            color: #444;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff88;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00ff88;
+            display: inline-block;
         }
 
         .chat-messages {
             flex: 1;
-            padding: 20px;
             overflow-y: auto;
-            background: #fcfcfc;
+            padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 20px;
             scrollbar-width: thin;
+            scrollbar-color: var(--primary) transparent;
         }
 
-        .message {
+        .chat-messages::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+
+        /* MESSAGE BUBBLES */
+        .msg {
             max-width: 85%;
-            padding: 12px 16px;
-            border-radius: 15px;
-            font-size: 14px;
-            line-height: 1.5;
-            position: relative;
-            animation: fadeIn 0.3s ease;
+            padding: 14px 18px;
+            border-radius: 20px;
+            font-size: 14.5px;
+            line-height: 1.6;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .user-message {
-            background: #f47920;
-            color: white;
-            align-self: flex-end;
-            border-bottom-right-radius: 2px;
-        }
-
-        .bot-message {
-            background: white;
-            color: #333;
+        .msg.bot {
             align-self: flex-start;
-            border: 1px solid #efefef;
-            border-bottom-left-radius: 2px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
         }
 
-        .bot-icon {
-            width: 20px;
-            height: 20px;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .chat-input-area {
-            padding: 15px;
-            background: white;
-            border-top: 1px solid #f0f0f0;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .input-wrapper {
-            flex: 1;
-            background: #f5f7fa;
-            border: 1px solid #e1e4e8;
-            border-radius: 25px;
-            padding: 0 20px;
-            height: 45px;
-            display: flex;
-            align-items: center;
-        }
-
-        .input-wrapper:focus-within {
-            border-color: #f47920;
-            background: #fff;
-            box-shadow: 0 0 0 3px rgba(244, 121, 32, 0.1);
-        }
-
-        .chat-input {
-            flex: 1;
-            border: none;
-            background: transparent;
-            outline: none;
-            font-size: 14px;
-            color: #333;
-        }
-
-        .send-btn {
-            background: #f47920;
+        .msg.user {
+            align-self: flex-end;
+            background: var(--primary);
             color: white;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 10px 20px rgba(244, 121, 32, 0.15);
+        }
+
+        .bot-avatar {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 10px;
+        }
+
+        /* INPUT AREA */
+        .input-area {
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.02);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-box {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 0 20px;
+            color: white;
+            font-family: inherit;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .input-box:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(244, 121, 32, 0.1);
+        }
+
+        .send-button {
+            width: 50px;
+            height: 50px;
+            background: var(--primary);
             border: none;
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
+            border-radius: 16px;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            flex-shrink: 0;
+            transition: var(--transition);
         }
 
-        .send-btn:hover {
-            transform: scale(1.05);
-            background: #e67e22;
+        .send-button:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
         }
 
-        /* THREE JS PANEL */
-        .three-panel {
+        /* VISUALIZATION PANEL */
+        .viz-panel {
             flex: 0.8;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            position: relative;
             overflow: hidden;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
+            flex-direction: column;
         }
 
-        /* MOBILE */
-        @media (max-width: 768px) {
-            .ums-header {
-                height: 55px;
-                padding: 0 10px;
-            }
-            .ums-logo-text, .sub-text {
-                display: none;
-            }
-            .title-container {
-                border: none;
-                padding: 0;
-            }
-            .top-title {
-                font-size: 12px;
-            }
-            .main-container {
-                padding: 0;
+        .viz-header {
+            padding: 18px 24px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border);
+        }
+
+        #viz-canvas {
+            flex: 1;
+            width: 100%;
+        }
+
+        .viz-overlay {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            right: 30px;
+            padding: 20px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1024px) {
+            main {
                 flex-direction: column;
-                gap: 0;
+                padding: 16px;
             }
-            .chat-card {
-                border-radius: 0;
-                border: none;
-                flex: 1;
+            .viz-panel {
+                flex: none;
+                height: 200px;
+                order: -1;
             }
-            .three-panel {
+            header {
+                padding: 0 20px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            header h1, header p {
                 display: none;
             }
-            .chat-messages {
-                padding: 15px;
+            .chat-container {
+                border-radius: 0;
+                margin: -16px;
+                height: calc(100vh - 70px - 200px);
             }
-            .message {
+            .msg {
                 max-width: 90%;
             }
-            .chat-input-area {
-                padding: 10px;
-                background: #fff;
+            .input-area {
+                padding: 15px;
             }
         }
+
+        /* Markdown Styling */
+        .bot p { margin-bottom: 10px; }
+        .bot ul { margin-left: 20px; margin-bottom: 10px; }
+        .bot strong { color: var(--primary-light); }
     </style>
 </head>
-
 <body>
-    <!-- Header -->
-    <div class="ums-header">
-        <div class="logo-section">
-            <img src="{% static 'images/lpu_logo.png' %}" alt="LPU Logo" style="height: 40px; width: 40px;">
-            <div class="ums-logo-text"><span>U</span>MS</div>
-            <div class="title-container">
-                <span class="top-title">UNIVERSITY MANAGEMENT SYSTEM</span>
-                <span class="sub-text">AI ASSISTANT PORTAL</span>
+
+    <header>
+        <div class="logo-group">
+            <img src="{% static 'images/lpu_logo.png' %}" class="logo-img" alt="LPU">
+            <div class="logo-text">
+                <h1><span>U</span>MS PORTAL</h1>
+                <p>Advanced AI Assistant</p>
             </div>
         </div>
-        <div class="auth-controls">
-            <form action="{% url 'logout' %}" method="post" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" class="logout-btn">Logout</button>
-            </form>
-        </div>
-    </div>
+        <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="logout-btn">Logout</button>
+        </form>
+    </header>
 
-    <!-- Main -->
-    <div class="main-container">
-        <div class="chat-card">
-            <div class="card-header">
-                <span>LPU CHATBOT</span>
-                <div style="font-size: 10px; color: #f47920;">● ONLINE</div>
+    <main>
+        <div class="chat-container">
+            <div class="chat-header">
+                <h2>LPU CORE AI <span class="status-dot"></span></h2>
+                <span style="font-size: 11px; color: var(--text-dim);">V2.5 Stable</span>
             </div>
 
-            <div class="chat-messages" id="chatMessages">
-                <div class="message bot-message">
-                    <img src="{% static 'images/lpu_logo.png' %}" class="bot-icon">
-                    <span><strong>JARVIS:</strong> Hello! I am your University AI Assistant. Ask me about admissions, fees, courses, placements, hostel, or exams.</span>
+            <div class="chat-messages" id="msgs">
+                <div class="msg bot">
+                    <img src="{% static 'images/lpu_logo.png' %}" class="bot-avatar">
+                    <div>
+                        <strong>Greetings!</strong> I am Jarvis, your LPU University AI. How can I assist you with admissions, rules, or campus info today?
+                    </div>
                 </div>
             </div>
 
-            <div class="chat-input-area">
-                <div class="input-wrapper">
-                    <input type="text" class="chat-input" id="chatInput" placeholder="Ask anything about LPU..." 
-                           onkeydown="if(event.key==='Enter') sendMessage()">
-                </div>
-                <button class="send-btn" onclick="sendMessage()">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+            <div class="input-area">
+                <input type="text" class="input-box" id="userInput" placeholder="Type your message here..." onkeydown="if(event.key==='Enter') send()">
+                <button class="send-button" onclick="send()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                     </svg>
                 </button>
             </div>
         </div>
 
-        <div class="three-panel">
-            <div id="canvas-container" style="width:100%; height:100%;"></div>
+        <div class="viz-panel">
+            <div class="viz-header">Neural Activity</div>
+            <div id="viz-canvas"></div>
+            <div class="viz-overlay">
+                System Active. Processing contextual university RAG tokens.
+            </div>
         </div>
-    </div>
+    </main>
 
     <script>
-        // THREE JS
-        let scene, camera, renderer, particles;
-        function initThreeJS() {
-            const container = document.getElementById('canvas-container');
-            if (!container) return;
+        // --- 3D VISUALIZATION ---
+        let scene, camera, renderer, globe;
+        function initViz() {
+            const container = document.getElementById('viz-canvas');
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.z = 2.5;
-            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.z = 3;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
             container.appendChild(renderer.domElement);
 
-            const count = 1500;
-            const geometry = new THREE.BufferGeometry();
-            const pos = new Float32Array(count * 3);
-            for (let i = 0; i < count; i++) {
-                const phi = Math.acos(-1 + (2 * i) / count);
-                const theta = Math.sqrt(count * Math.PI) * phi;
-                pos[i*3] = Math.cos(theta) * Math.sin(phi);
-                pos[i*3+1] = Math.sin(theta) * Math.sin(phi);
-                pos[i*3+2] = Math.cos(phi);
+            const geo = new THREE.IcosahedronGeometry(1, 4);
+            const mat = new THREE.PointsMaterial({ 
+                color: 0xf47920, 
+                size: 0.02,
+                transparent: true,
+                opacity: 0.8
+            });
+            globe = new THREE.Points(geo, mat);
+            scene.add(globe);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                globe.rotation.y += 0.003;
+                globe.rotation.x += 0.001;
+                renderer.render(scene, camera);
             }
-            geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-            particles = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xf47920, size: 0.015 }));
-            scene.add(particles);
             animate();
-        }
-        function animate() {
-            requestAnimationFrame(animate);
-            if (particles) { particles.rotation.y += 0.002; particles.rotation.x += 0.001; }
-            renderer.render(scene, camera);
-        }
-        window.addEventListener('load', initThreeJS);
 
-        // CHAT LOGIC
-        let chatHistory = [];
-        async function sendMessage() {
-            const input = document.getElementById('chatInput');
-            const question = input.value.trim();
-            if (!question) return;
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+        initViz();
 
-            addMessage(question, 'user');
+        // --- CHAT LOGIC ---
+        let history = [];
+        const msgs = document.getElementById('msgs');
+
+        async function send() {
+            const input = document.getElementById('userInput');
+            const val = input.value.trim();
+            if (!val) return;
+
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'msg user';
+            userMsg.textContent = val;
+            msgs.appendChild(userMsg);
             input.value = '';
+            msgs.scrollTop = msgs.scrollHeight;
 
-            const container = document.getElementById('chatMessages');
-            const botDiv = document.createElement('div');
-            botDiv.className = 'message bot-message';
-            botDiv.innerHTML = '<img src="{% static "images/lpu_logo.png" %}" class="bot-icon"><div class="bot-text"><em>Thinking...</em></div>';
-            container.appendChild(botDiv);
-            container.scrollTop = container.scrollHeight;
+            // Add thinking message
+            const thinking = document.createElement('div');
+            thinking.className = 'msg bot';
+            thinking.innerHTML = '<em>Thinking...</em>';
+            msgs.appendChild(thinking);
+            msgs.scrollTop = msgs.scrollHeight;
 
             try {
                 const res = await fetch('/api/chat/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: question, chat_history: chatHistory })
+                    body: JSON.stringify({ query: val, chat_history: history })
                 });
                 const data = await res.json();
-                const answer = data.answer || "No response received.";
+                const answer = data.answer || "I'm having trouble connecting right now.";
                 
-                chatHistory.push({role: 'user', content: question});
-                chatHistory.push({role: 'assistant', content: answer});
+                history.push({role: 'user', content: val});
+                history.push({role: 'assistant', content: answer});
 
-                const botText = botDiv.querySelector('.bot-text');
-                botText.innerHTML = marked.parse(answer);
-                container.scrollTop = container.scrollHeight;
-            } catch (err) {
-                botDiv.querySelector('.bot-text').innerHTML = "Connection Error. Please try again.";
+                thinking.innerHTML = `
+                    <img src="{% static 'images/lpu_logo.png' %}" class="bot-avatar">
+                    <div class="bot-content">${marked.parse(answer)}</div>
+                `;
+            } catch (e) {
+                thinking.innerHTML = "⚠️ Sorry, I encountered a connection error.";
             }
-        }
-
-        function addMessage(text, type) {
-            const container = document.getElementById('chatMessages');
-            const div = document.createElement('div');
-            div.className = 'message ' + type + '-message';
-            if (type === 'bot') {
-                div.innerHTML = '<img src="{% static "images/lpu_logo.png" %}" class="bot-icon"><span>' + text + '</span>';
-            } else {
-                div.textContent = text;
-            }
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+            msgs.scrollTop = msgs.scrollHeight;
         }
     </script>
 </body>
