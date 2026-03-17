@@ -13,6 +13,87 @@ An intelligent, production-grade Retrieval-Augmented Generation (RAG) chatbot de
 
 ---
 
+## 🏗 System Architecture
+
+```mermaid
+graph TD
+    subgraph Client_Layer [Client Layer]
+        User((User))
+        Browser[Web Browser]
+    end
+
+    subgraph App_Layer [Application Layer - AWS App Runner]
+        Django[Django Web Server]
+        Auth[Auth System]
+        ChatUI[Chat Interface]
+        subgraph Logic [RAG Logic - LlamaIndex]
+            Agent[ReAct Agent]
+            Retriever[Amazon KB Retriever]
+        end
+    end
+
+    subgraph AI_Data_Layer [AI & Data Layer]
+        GH_Models[GitHub Models - GPT-4o]
+        Bedrock[Amazon Bedrock Knowledge Base]
+        Supabase[(Supabase - PostgreSQL)]
+    end
+
+    User <--> Browser
+    Browser <--> ChatUI
+    ChatUI <--> Django
+    Django <--> Auth
+    Django <--> Agent
+    Agent <--> GH_Models
+    Agent <--> Retriever
+    Retriever <--> Bedrock
+    Bedrock <--> Supabase
+```
+
+## 🔄 RAG Workflow
+
+This diagram illustrates the decision logic behind every response, including the robust fallback mechanism.
+
+```mermaid
+flowchart TD
+    A[User Message Received] --> B{Initialize Agent?}
+    B -- Success --> C[Query ReAct Agent]
+    B -- Failure --> D[Initialize Raw Retriever]
+    
+    C --> E{LLM Responded?}
+    E -- Yes --> F[Display AI Response]
+    E -- No --> D
+    
+    D --> G{Data Found?}
+    G -- Yes --> H[Display Raw Snippets <br/> with Warning]
+    G -- No --> I[Display Friendly Error]
+    
+    F --> J[Save to Database]
+    H --> J
+    I --> J
+```
+
+## 📡 Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant D as Django (View)
+    participant A as LlamaIndex Agent
+    participant K as Bedrock KB
+    participant L as LLM (GPT-4o)
+
+    U->>D: Send Message
+    D->>A: Process Request
+    A->>K: Retrieve Context
+    K-->>A: Context Chunks
+    A->>L: Context + Query
+    L-->>A: Structured Answer
+    A-->>D: response_text
+    D-->>U: Display Answer
+```
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend
@@ -39,12 +120,12 @@ An intelligent, production-grade Retrieval-Augmented Generation (RAG) chatbot de
 
 ### 1. Clone the Repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/MAVIcVICKY/LPU_RAG.git
 cd LPU_RAG
 ```
 
 ### 2. Configure Environment Variables
-Create a `.env` file in the root directory and add the following:
+Create a `.env` file in the root directory and add the following (see `.env.example` for reference):
 ```env
 DJANGO_SECRET_KEY=your-secret-key
 DJANGO_DEBUG=True
@@ -92,11 +173,6 @@ docker build -t rag-bot .
 docker tag rag-bot:latest <aws-account-id>.dkr.ecr.<region>.amazonaws.com/rag-bot:latest
 docker push <aws-account-id>.dkr.ecr.<region>.amazonaws.com/rag-bot:latest
 ```
-
-### AWS App Runner Configuration
-- **Port**: 8080
-- **Runtime**: Image
-- **Environment Variables**: Ensure all variables from `.env` are set in the App Runner console.
 
 ---
 
