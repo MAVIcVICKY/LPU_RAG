@@ -29,5 +29,5 @@ EXPOSE 8080
 # CMD to run migrations, create admin, and then the application using gunicorn
 # Using semicolons ensures the web server starts even if migrations take time
 CMD python manage.py migrate --noinput; \
-    python setup_admin.py; \
+    python scripts/setup_admin.py; \
     gunicorn core.wsgi:application --bind 0.0.0.0:8080 --workers 3 --timeout 120
