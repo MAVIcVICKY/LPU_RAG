@@ -27,3 +27,4 @@ staticfiles/
 .vscode/
 .idea/
 *.log
+.env_utf8
