@@ -12,18 +12,23 @@ class PlannerAgent:
     async def decide_strategy(self, query):
         prompt = f"""
         You are an LPU University Assistant Planner. 
-        Decide if the user's query requires specific university documentation (rules, courses, fees, dates) 
-        or if it's a general greeting/conversation.
+        Analyze the user's query and categorize it into one of three states:
+        
+        1. RETRIEVE: The query is about LPU University (rules, courses, fees, dates, facilities, etc.) and requires documentation.
+        2. DIRECT: The query is a general greeting (Hi, Hello) or a polite follow-up related to the conversation.
+        3. REJECT: The query is completely unrelated to LPU University, academics, or the assistant's purpose (e.g., world news, sports, jokes, generic coding outside LPU context).
 
         Query: {query}
 
-        Answer ONLY with one word: RETRIEVE or DIRECT
+        Answer ONLY with one word: RETRIEVE, DIRECT, or REJECT
         """
         try:
             response = await self.llm.acomplete(prompt)
             decision = str(response).strip().upper()
             if "RETRIEVE" in decision:
                 return "RETRIEVE"
+            elif "REJECT" in decision:
+                return "REJECT"
             return "DIRECT"
         except Exception as e:
             logger.error(f"Planner Error: {e}")
@@ -88,6 +93,10 @@ class Orchestrator:
         # Phase 1: Planning
         decision = await self.planner.decide_strategy(query)
         print(f"[Planner] Decision: {decision}")
+
+        if decision == "REJECT":
+            print("[Orchestrator] Guardrail triggered: Out-of-context query.")
+            return "I am only answerable to university-related queries. How can I help you regarding LPU today?"
 
         context = None
         if decision == "RETRIEVE":
