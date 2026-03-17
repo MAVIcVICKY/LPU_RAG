@@ -49,6 +49,26 @@ graph TD
     Bedrock <--> Supabase
 ```
 
+## 🤖 Agentic Workflow
+
+This diagram represents the high-level orchestration of our AI agents within the assistant:
+
+```mermaid
+graph TD
+    A[User Query] --> B[Planner Agent]
+    B --> C{Retriever Agent <br/> Needed?}
+    C -- Yes --> D[Retriever Agent]
+    D --> E[Generator Agent]
+    C -- No --> E
+    E --> F[Response]
+```
+
+### Agency Components:
+- **Planner Agent**: Analyzes the intent of the user query to decide if it requires factual retrieval from university documents (`RETRIEVE`) or can be answered as a general conversational query (`DIRECT`).
+- **Retriever Agent**: Interfaces with the **Amazon Bedrock Knowledge Base** to fetch high-relevance chunks of documentation.
+- **Generator Agent**: Synthesizes the final response by combining the user's intent, the retrieved context, and the conversation history into a clear, professional answer.
+- **Orchestrator**: Manages the state and transition between agents, ensuring robust fallback logic if any single component fails.
+
 ## 🔄 RAG Workflow
 
 This diagram illustrates the decision logic behind every response, including the robust fallback mechanism.

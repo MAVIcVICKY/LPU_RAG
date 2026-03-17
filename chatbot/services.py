@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Global variables to hold initialized components
 retriever = None
-agent = None
+orchestrator = None # Changed from agent
 HAS_LLAMA = False
 
 try:
@@ -89,16 +89,18 @@ def initialize_retriever():
         return None
 
 def initialize_agent():
-    """Initializes the AI agent. If this fails, we fall back to retriever later."""
-    global agent, retriever
-    if agent is not None:
-        return agent
+    """Initializes the Multi-Agent Orchestrator."""
+    global orchestrator, retriever
+    if orchestrator is not None:
+        return orchestrator
     
     if not HAS_LLAMA:
-        logger.error("Cannot initialize agent: LlamaIndex missing.")
+        logger.error("Cannot initialize orchestrator: LlamaIndex missing.")
         return None
 
     try:
+        from .agents import Orchestrator # Local import to avoid circular dependencies
+        
         # Configuration retrieval
         github_token = get_config("GITHUB_TOKEN", "/rag-app/github-token")
         github_model = get_config("GITHUB_MODEL", "/rag-app/github-model") or "gpt-4o"
@@ -109,7 +111,8 @@ def initialize_agent():
         curr_retriever = initialize_retriever()
         if not curr_retriever:
             logger.warning("Retriever not initialized; raw data fallback will be used.")
-            return None
+            # We can still proceed if the planner decides DIRECT
+            # But let's stay consistent with the original logic for now
 
         # Initialize LLM
         llm = None
@@ -131,103 +134,31 @@ def initialize_agent():
             return None
 
         Settings.llm = llm
-
-        # Create Query Engine
-        query_engine = RetrieverQueryEngine.from_args(
-            retriever=curr_retriever,
-            llm=llm
-        )
-
-        # Create Agent
-        if ReActAgent:
-            _knowledge_base_tool = QueryEngineTool.from_defaults(
-                query_engine=query_engine,
-                name="lpu_kb",
-                description="Information about LPU University rules and courses.",
-            )
-            
-            # Try multiple initialization patterns
-            try:
-                if hasattr(ReActAgent, 'from_tools'):
-                    agent = ReActAgent.from_tools(tools=[_knowledge_base_tool], llm=llm, context="You are a helpful AI assistant for LPU.")
-                elif hasattr(ReActAgent, 'from_llm_and_tools'):
-                    agent = ReActAgent.from_llm_and_tools(tools=[_knowledge_base_tool], llm=llm, context="You are a helpful AI assistant for LPU.")
-                else:
-                    agent = ReActAgent(tools=[_knowledge_base_tool], llm=llm, context="You are a helpful AI assistant for LPU.")
-            except Exception as e:
-                logger.warning(f"Preferred ReActAgent init failed: {e}. Falling back to direct instantiation.")
-                agent = ReActAgent(tools=[_knowledge_base_tool], llm=llm, context="You are a helpful AI assistant for LPU.")
-        else:
-            class SimpleAgent:
-                def __init__(self, qe): self.qe = qe
-                async def achat(self, m, chat_history=None): return await self.qe.aquery(m)
-            agent = SimpleAgent(query_engine)
-            
-        return agent
+        
+        # Initialize Orchestrator instead of ReActAgent
+        orchestrator = Orchestrator(llm=llm, retriever=curr_retriever)
+        return orchestrator
     except Exception as e:
-        logger.error(f"Agent initialization error: {e}")
+        logger.error(f"Orchestrator initialization error: {e}")
         return None
 
 async def get_agent_response(message, chat_history):
-    # Try fully initialized Agent first
-    curr_agent = initialize_agent()
-    if curr_agent:
+    # Try fully initialized Orchestrator first
+    curr_orchestrator = initialize_agent()
+    if curr_orchestrator:
         try:
             chat_history_objs = []
-            for msg in chat_history:
-                role = MessageRole.USER if msg["role"] == "user" else MessageRole.ASSISTANT
-                chat_history_objs.append(ChatMessage(role=role, content=msg["content"]))
+            if ChatMessage and MessageRole:
+                for msg in chat_history:
+                    role = MessageRole.USER if msg["role"] == "user" else MessageRole.ASSISTANT
+                    chat_history_objs.append(ChatMessage(role=role, content=msg["content"]))
             
-            # Multi-method dispatch with aggressive resolution loop
-            response = None
-            if hasattr(curr_agent, 'achat'):
-                logger.info("Trying agent.achat...")
-                response = curr_agent.achat(message, chat_history=chat_history_objs)
-            elif hasattr(curr_agent, 'arun'):
-                logger.info("Trying agent.arun with history...")
-                # Note: Workflow-based agents often take chat_history
-                response = curr_agent.arun(user_msg=message, chat_history=chat_history_objs)
-            elif hasattr(curr_agent, 'chat'):
-                logger.info("Trying agent.chat...")
-                response = curr_agent.chat(message, chat_history=chat_history_objs)
-            elif hasattr(curr_agent, 'run'):
-                logger.info("Trying agent.run with history...")
-                response = curr_agent.run(user_msg=message, chat_history=chat_history_objs)
-            elif hasattr(curr_agent, 'aquery'):
-                logger.info("Trying agent.aquery (history may be ignored)...")
-                response = curr_agent.aquery(message)
-            elif hasattr(curr_agent, 'query'):
-                logger.info("Trying agent.query (history may be ignored)...")
-                response = curr_agent.query(message)
+            # Call our new Orchestrator
+            response = await curr_orchestrator.handle_query(message, chat_history_objs)
+            return response
             
-            # Agressively resolve any awaitables or WorkflowHandlers
-            # We do this in a loop because some methods return a coroutine that returns a handler
-            # which then needs to be awaited itself to get the final result.
-            for attempt in range(5):
-                if response is None:
-                    break
-                
-                res_type = str(type(response))
-                logger.info(f"Resolution Attempt {attempt+1}: Type is {res_type}")
-                
-                if inspect.isawaitable(response):
-                    logger.debug("Awaiting coroutine/awaitable...")
-                    response = await response
-                elif 'WorkflowHandler' in res_type:
-                    logger.debug("Awaiting WorkflowHandler...")
-                    response = await response
-                else:
-                    # We reached a final result (likely a Response object or string)
-                    break
-
-            if response is not None:
-                final_answer = str(response)
-                logger.info(f"Successfully resolved response: {final_answer[:50]}...")
-                return final_answer
-            
-            logger.error(f"No valid query methods found on agent type: {type(curr_agent)}")
         except Exception as e:
-            logger.error(f"Agent execution failed: {e}")
+            logger.error(f"Orchestrator execution failed: {e}")
             logger.debug(traceback.format_exc())
     
     # AGGRESSIVE FALLBACK: Raw chunks if LLM/Agent fails
