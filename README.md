@@ -27,7 +27,7 @@ graph TD
         Auth[Auth System]
         ChatUI[Chat Interface]
         subgraph Logic [RAG Logic - LlamaIndex]
-            Agent[ReAct Agent]
+            Agent[Multi-Agent Orchestrator]
             Retriever[Amazon KB Retriever]
         end
     end
@@ -64,7 +64,7 @@ graph TD
 ```
 
 ### Agency Components:
-- **Planner Agent**: Analyzes the intent of the user query to decide if it requires factual retrieval from university documents (`RETRIEVE`) or can be answered as a general conversational query (`DIRECT`).
+- **Planner Agent**: Analyzes the intent of the user query to decide if it requires factual retrieval from university documents (`RETRIEVE`), general conversation (`DIRECT`), or should be rejected as out-of-context (`REJECT`).
 - **Retriever Agent**: Interfaces with the **Amazon Bedrock Knowledge Base** to fetch high-relevance chunks of documentation.
 - **Generator Agent**: Synthesizes the final response by combining the user's intent, the retrieved context, and the conversation history into a clear, professional answer.
 - **Orchestrator**: Manages the state and transition between agents, ensuring robust fallback logic if any single component fails.
@@ -75,8 +75,8 @@ This diagram illustrates the decision logic behind every response, including the
 
 ```mermaid
 flowchart TD
-    A[User Message Received] --> B{Initialize Agent?}
-    B -- Success --> C[Query ReAct Agent]
+    A[User Message Received] --> B{Initialize Orchestrator?}
+    B -- Success --> C[Query Multi-Agent System]
     B -- Failure --> D[Initialize Raw Retriever]
     
     C --> E{LLM Responded?}
@@ -98,17 +98,17 @@ flowchart TD
 sequenceDiagram
     participant U as User
     participant D as Django (View)
-    participant A as LlamaIndex Agent
+    participant O as Orchestrator (Multi-Agent)
     participant K as Bedrock KB
     participant L as LLM (GPT-4o)
 
     U->>D: Send Message
-    D->>A: Process Request
-    A->>K: Retrieve Context
-    K-->>A: Context Chunks
-    A->>L: Context + Query
-    L-->>A: Structured Answer
-    A-->>D: response_text
+    D->>O: Process Request
+    O->>K: Retrieve Context
+    K-->>O: Context Chunks
+    O->>L: Context + Query
+    L-->>O: Structured Answer
+    O-->>D: response_text
     D-->>U: Display Answer
 ```
 
@@ -127,7 +127,7 @@ sequenceDiagram
 - **WhiteNoise**: Efficient static file serving for containerized environments.
 
 ### AI & Data
-- **RAG Engine**: LlamaIndex (ReAct Agent).
+- **RAG Engine**: LlamaIndex (Multi-Agent Orchestrator).
 - **LLMs**: Claude 3 (AWS Bedrock), GPT-4o (GitHub Models).
 - **Vector Database**: Amazon Bedrock Knowledge Bases.
 - **Database**: 
@@ -179,19 +179,20 @@ python manage.py runserver
 
 ## 🐳 Deployment (Docker & AWS)
 
-### Build the Image
-```bash
-docker build -t rag-bot .
-```
+> [!IMPORTANT]
+> All commands below must be executed from the `LPU_RAG` directory (where the `Dockerfile` is located).
 
 ### Push to Amazon ECR
-```bash
-# Authenticate
-(Get-ECRLoginCommand).Password | docker login --username AWS --password-stdin <aws-account-id>.dkr.ecr.<region>.amazonaws.com
+Retrieve an authentication token and authenticate your Docker client to your registry:
+```powershell
+(Get-ECRLoginCommand).Password | docker login --username AWS --password-stdin 804594767592.dkr.ecr.ap-south-1.amazonaws.com
+```
 
-# Tag and Push
-docker tag rag-bot:latest <aws-account-id>.dkr.ecr.<region>.amazonaws.com/rag-bot:latest
-docker push <aws-account-id>.dkr.ecr.<region>.amazonaws.com/rag-bot:latest
+Build, tag, and push your image:
+```bash
+docker build -t rag-bot .
+docker tag rag-bot:latest 804594767592.dkr.ecr.ap-south-1.amazonaws.com/rag-bot:latest
+docker push 804594767592.dkr.ecr.ap-south-1.amazonaws.com/rag-bot:latest
 ```
 
 ---
