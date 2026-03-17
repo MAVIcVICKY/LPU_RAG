@@ -1,4 +1,4 @@
-# LPU RAG - University Management System Chatbot
+# LPU RAG - University Management System Assistant  (by Vicky & Jashanprit)
 
 A production-ready Generative AI chatbot built with **Django**, **LlamaIndex**, and **AWS Bedrock**. This system serves as an intelligent assistant for Lovely Professional University (LPU), providing accurate information about courses, rules, and campus life using Retrieval-Augmented Generation (RAG).
 
