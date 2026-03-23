@@ -16,9 +16,9 @@ An intelligent, production-grade Retrieval-Augmented Generation (RAG) chatbot de
 ## 📸 Demo Screenshots
 
 <div align="center">
-  <img src="static/images/demo1.png" alt="Chatbot answering chancellor query" width="45%" />
+  <img src="static/images/demo1.jpeg" alt="Chatbot answering chancellor query" width="45%" />
   &nbsp;
-  <img src="static/images/demo2.png" alt="Chatbot answering emergency numbers query" width="45%" />
+  <img src="static/images/demo2.jpeg" alt="Chatbot answering emergency numbers query" width="45%" />
 </div>
 
 ---
